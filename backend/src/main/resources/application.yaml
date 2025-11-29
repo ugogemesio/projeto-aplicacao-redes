@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: iot
+  datasource:
+    url: jdbc:h2:mem:iotdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password: password
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true

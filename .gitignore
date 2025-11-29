@@ -16,3 +16,6 @@ nbproject/private/
 
 # OS
 .DS_Store
+
+backend/.gitattributes
+backend/.gradle/8.14/
