@@ -1,0 +1,18 @@
+# Build
+/build/
+/.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDEs
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+nbproject/private/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
