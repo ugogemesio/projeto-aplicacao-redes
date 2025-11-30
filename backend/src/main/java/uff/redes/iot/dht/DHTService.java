@@ -30,6 +30,17 @@ public class DHTService {
                 salvo.getDataHora()
         );
     }
+    public DHTResponse buscarUltimo() {
+        return repository.findTopByOrderByDataHoraDesc()
+                .map(salvo -> new DHTResponse(
+                        salvo.getId(),
+                        salvo.getTemperatura(),
+                        salvo.getUmidade(),
+                        salvo.getOrigem(),
+                        salvo.getDataHora()
+                ))
+                .orElse(null);
+    }
 
     public List<DHTResponse> listarTodos() {
         return repository.findAll().stream().map(salvo ->

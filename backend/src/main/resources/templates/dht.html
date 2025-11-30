@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>DHT em tempo real</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        canvas { max-width: 800px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+<h1>DHT Sensor em tempo real</h1>
+
+<p>Temperatura: <span id="temperatura">--</span> °C</p>
+<p>Umidade: <span id="umidade">--</span> %</p>
+<p>Origem: <span id="origem">--</span></p>
+<p>Data/Hora: <span id="dataHora">--</span></p>
+
+<canvas id="temperaturaChart"></canvas>
+<canvas id="umidadeChart"></canvas>
+
+<script>
+    // Arrays para armazenar histórico dos últimos valores
+    const tempData = [];
+    const humData = [];
+    const labels = [];
+
+    // Configuração do gráfico de temperatura
+    const tempCtx = document.getElementById('temperaturaChart').getContext('2d');
+    const temperaturaChart = new Chart(tempCtx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Temperatura (°C)',
+                data: tempData,
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                fill: true,
+                tension: 0.2
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { display: true, title: { display: true, text: 'Tempo' } },
+                y: { display: true, title: { display: true, text: '°C' } }
+            }
+        }
+    });
+
+    // Configuração do gráfico de umidade
+    const humCtx = document.getElementById('umidadeChart').getContext('2d');
+    const umidadeChart = new Chart(humCtx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Umidade (%)',
+                data: humData,
+                borderColor: 'rgb(54, 162, 235)',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                fill: true,
+                tension: 0.2
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { display: true, title: { display: true, text: 'Tempo' } },
+                y: { display: true, title: { display: true, text: '%' } }
+            }
+        }
+    });
+
+    // Função para atualizar os dados do DHT
+    async function atualizarDHT() {
+        try {
+            const response = await fetch('/api/dht/ultimo');
+            if (!response.ok) return;
+
+            const data = await response.json();
+
+            // Atualiza valores na tela
+            document.getElementById('temperatura').textContent = data.temperatura.toFixed(1);
+            document.getElementById('umidade').textContent = data.umidade.toFixed(1);
+            document.getElementById('origem').textContent = data.origem;
+            document.getElementById('dataHora').textContent = data.dataHora;
+
+            // Adiciona ao histórico
+            const timeLabel = new Date().toLocaleTimeString();
+            labels.push(timeLabel);
+            tempData.push(data.temperatura);
+            humData.push(data.umidade);
+
+            // Mantém somente os últimos 20 pontos
+            if (labels.length > 20) {
+                labels.shift();
+                tempData.shift();
+                humData.shift();
+            }
+
+            // Atualiza gráficos
+            temperaturaChart.update();
+            umidadeChart.update();
+
+        } catch (err) {
+            console.error("Erro ao buscar dados do DHT:", err);
+        }
+    }
+
+    setInterval(atualizarDHT, 1000);
+
+    atualizarDHT();
+</script>
+</body>
+</html>
