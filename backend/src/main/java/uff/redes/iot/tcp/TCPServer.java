@@ -54,51 +54,59 @@ public class TCPServer {
     }
 
     private void processClient(Socket socket) {
-        NetworkStats stats = statsService.getNetworkStats();
         try (
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
         ) {
             String line;
             while ((line = in.readLine()) != null) {
-
                 if (line.isBlank()) continue;
                 System.out.println("📥 Recebido: " + line);
 
                 String[] parts = line.split(",");
-                if (parts.length != 4) continue;
+                if (parts.length != 5) {  // Agora são 5 campos!
+                    System.out.println("⚠️ Formato inválido. Esperados 5 campos, recebidos: " + parts.length);
+                    continue;
+                }
 
                 double temp = Double.parseDouble(parts[0]);
                 double hum = Double.parseDouble(parts[1]);
                 String origem = parts[2];
                 long timestampESP = Long.parseLong(parts[3]);
+                long rttESP = Long.parseLong(parts[4]);  // RTT calculado pelo ESP
 
                 long timestampServidor = System.currentTimeMillis();
-                long rtt = timestampServidor - timestampESP;
+
+                // ✅ Agora use o RTT que veio do ESP (já calculado corretamente)
+                // Não precisa fazer timestampServidor - timestampESP
 
                 int bytesRecebidos = line.getBytes().length;
                 lastData = new DHTResponse(
                         null, temp, hum,
-                        origem + " | RTT: " + rtt + " ms",
+                        origem + " | RTT: " + rttESP + " ms",
                         LocalDateTime.now().toString()
                 );
 
-                // delega responsabilidade ao serviço
+                // Delegar ao serviço
                 service.processIncomingData(temp, hum, origem);
 
                 // WebSocket
                 messagingTemplate.convertAndSend("/topic/dht", lastData);
 
+                // Usar o RTT que veio do ESP para estatísticas
+                statsService.addRTT(rttESP, bytesRecebidos);
 
-                statsService.addRTT(rtt, bytesRecebidos);
+                NetworkStats stats = statsService.getNetworkStats();
                 System.out.println("📊 Network Stats:");
                 System.out.println("  - Throughput: " + stats.throughput() + " bytes/seg");
                 System.out.println("  - Jitter: " + stats.jitter() + " ms");
+                System.out.println("  - RTT atual (ESP): " + rttESP + " ms");
 
-
+                // Enviar ACK de volta
                 out.println("ACK," + timestampServidor);
             }
-
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

@@ -55,6 +55,18 @@ public class DHTStatsService {
     }
 
     public synchronized NetworkStats getNetworkStats() {
+
+        System.out.println("🔍 DEBUG - Tamanhos das listas:");
+        System.out.println("  - historicoRTT: " + historicoRTT.size());
+        System.out.println("  - historicoBytes: " + historicoBytes.size());
+        System.out.println("  - historicoTimestamps: " + historicoTimestamps.size());
+
+        if (historicoTimestamps.size() > 1) {
+            System.out.println("  - Primeiro timestamp: " + historicoTimestamps.get(0));
+            System.out.println("  - Último timestamp: " + historicoTimestamps.get(historicoTimestamps.size() - 1));
+            System.out.println("  - Diferença (ms): " +
+                    (historicoTimestamps.get(historicoTimestamps.size() - 1) - historicoTimestamps.get(0)));
+        }
         if (historicoRTT.size() < 2) {
             return new NetworkStats(0, 0);
         }
@@ -66,12 +78,19 @@ public class DHTStatsService {
         }
         double jitter = totalDiff / (historicoRTT.size() - 1);
 
-        // Cálculo do Throughput
+        // Cálculo do Throughput - corrigido para evitar divisão por zero
         long totalBytes = historicoBytes.stream().mapToLong(Integer::longValue).sum();
-        long totalTimeMs = historicoTimestamps.get(historicoTimestamps.size() - 1)
-                - historicoTimestamps.get(0);
-        double throughput = totalBytes / (totalTimeMs / 1000.0);
+        long totalTimeMs = 0;
 
+        if (historicoTimestamps.size() > 1) {
+            totalTimeMs = historicoTimestamps.get(historicoTimestamps.size() - 1)
+                    - historicoTimestamps.get(0);
+        }
+
+        double throughput = 0;
+        if (totalTimeMs > 0) {
+            throughput = (totalBytes * 1000.0) / totalTimeMs; // bytes por segundo
+        }
 
         return new NetworkStats(throughput, jitter);
     }
