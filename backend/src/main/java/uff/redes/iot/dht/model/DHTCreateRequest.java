@@ -1,4 +1,4 @@
-package uff.redes.iot.dht;
+package uff.redes.iot.dht.model;
 
 public record DHTCreateRequest(
         Double temperatura,

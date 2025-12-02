@@ -3,12 +3,15 @@
 <head>
     <title>DHT em tempo real</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; }
         canvas { max-width: 800px; margin: 20px 0; }
     </style>
 </head>
 <body>
+
 <h1>DHT Sensor em tempo real</h1>
 
 <p>Temperatura: <span id="temperatura">--</span> °C</p>
@@ -18,6 +21,12 @@
 
 <canvas id="temperaturaChart"></canvas>
 <canvas id="umidadeChart"></canvas>
+
+<h2>Estatísticas</h2>
+<p>Máxima: <span id="maxTemp">--</span> °C</p>
+<p>Mínima: <span id="minTemp">--</span> °C</p>
+<p>Média: <span id="avgTemp">--</span> °C</p>
+
 
 <script>
     // Arrays para armazenar histórico dos últimos valores
@@ -112,6 +121,51 @@
     setInterval(atualizarDHT, 1000);
 
     atualizarDHT();
+    let stompClient = null;
+
+function connectWebSocket() {
+    const socket = new SockJS('/ws');
+    stompClient = Stomp.over(socket);
+    stompClient.connect({}, function () {
+        stompClient.subscribe('/topic/dht', function (msg) {
+            const data = JSON.parse(msg.body);
+            atualizarDashboard(data);
+        });
+    });
+}
+
+function atualizarDashboard(data) {
+    document.getElementById('temperatura').textContent = data.temperatura.toFixed(1);
+    document.getElementById('umidade').textContent = data.umidade.toFixed(1);
+    document.getElementById('origem').textContent = data.origem;
+    document.getElementById('dataHora').textContent = data.dataHora;
+
+    const timeLabel = new Date().toLocaleTimeString();
+    labels.push(timeLabel);
+    tempData.push(data.temperatura);
+    humData.push(data.umidade);
+
+    if (labels.length > 20) {
+        labels.shift();
+        tempData.shift();
+        humData.shift();
+    }
+
+    temperaturaChart.update();
+    umidadeChart.update();
+}
+
+connectWebSocket();
+async function atualizarStats() {
+    const r = await fetch('/api/stats');
+    const s = await r.json();
+    document.getElementById('maxTemp').textContent = s.maxTemp.toFixed(1);
+    document.getElementById('minTemp').textContent = s.minTemp.toFixed(1);
+    document.getElementById('avgTemp').textContent = s.avgTemp.toFixed(1);
+}
+
+setInterval(atualizarStats, 5000);
+
 </script>
 </body>
 </html>

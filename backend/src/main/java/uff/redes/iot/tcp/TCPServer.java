@@ -1,23 +1,33 @@
 package uff.redes.iot.tcp;
 
-import org.springframework.stereotype.Component;
-import uff.redes.iot.dht.DHTResponse;
-
 import jakarta.annotation.PostConstruct;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Component;
+
+import uff.redes.iot.dht.model.*;
+
+import uff.redes.iot.dht.service.DHTService;
+import uff.redes.iot.dht.service.DHTStatsService;
+import uff.redes.iot.networkstats.NetworkStats;
+
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.time.LocalDateTime;
+
 
 @Component
+@RequiredArgsConstructor
 public class TCPServer {
 
+    private final SimpMessagingTemplate messagingTemplate;
+    private final DHTService service;
+    private final DHTStatsService statsService;
+
     private volatile DHTResponse lastData = new DHTResponse(
-            null,    // id
-            0.0,     // temperatura
-            0.0,     // umidade
-            "Nenhum",// origem
-            ""       // dataHora
+            null, 0.0, 0.0, "Nenhum", ""
     );
 
     public DHTResponse getLastData() {
@@ -26,44 +36,69 @@ public class TCPServer {
 
     @PostConstruct
     public void startServer() {
-        new Thread(() -> {
-            try (ServerSocket serverSocket = new ServerSocket(5000)) {
-                System.out.println("Servidor TCP iniciado na porta 5000");
-
-                while (true) {
-                    Socket clientSocket = serverSocket.accept();
-                    System.out.println("Cliente conectado: " + clientSocket.getInetAddress());
-
-                    // Cada cliente em uma thread
-                    new Thread(() -> handleClient(clientSocket)).start();
-                }
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }).start();
+        new Thread(() -> runTCPServer()).start();
     }
 
-    private void handleClient(Socket socket) {
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
-            String line;
-            while ((line = in.readLine()) != null) {
-                String[] parts = line.split(",");
-                if (parts.length >= 3) {
-                    // Cria um novo record a cada atualização
-                    lastData = new DHTResponse(
-                            null, // id
-                            Double.parseDouble(parts[0]),
-                            Double.parseDouble(parts[1]),
-                            parts[2],
-                            java.time.LocalDateTime.now().toString()
-                    );
+    private void runTCPServer() {
+        try (ServerSocket serverSocket = new ServerSocket(5000)) {
+            System.out.println("📡 Servidor TCP aguardando...");
 
-                    System.out.println("Recebido: " + line);
-                }
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+                new Thread(() -> processClient(clientSocket)).start();
             }
-        } catch (Exception e) {
+
+        } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private void processClient(Socket socket) {
+        NetworkStats stats = statsService.getNetworkStats();
+        try (
+                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
+        ) {
+            String line;
+            while ((line = in.readLine()) != null) {
+
+                if (line.isBlank()) continue;
+                System.out.println("📥 Recebido: " + line);
+
+                String[] parts = line.split(",");
+                if (parts.length != 4) continue;
+
+                double temp = Double.parseDouble(parts[0]);
+                double hum = Double.parseDouble(parts[1]);
+                String origem = parts[2];
+                long timestampESP = Long.parseLong(parts[3]);
+
+                long timestampServidor = System.currentTimeMillis();
+                long rtt = timestampServidor - timestampESP;
+
+                int bytesRecebidos = line.getBytes().length;
+                lastData = new DHTResponse(
+                        null, temp, hum,
+                        origem + " | RTT: " + rtt + " ms",
+                        LocalDateTime.now().toString()
+                );
+
+                // delega responsabilidade ao serviço
+                service.processIncomingData(temp, hum, origem);
+
+                // WebSocket
+                messagingTemplate.convertAndSend("/topic/dht", lastData);
+
+
+                statsService.addRTT(rtt, bytesRecebidos);
+                System.out.println("📊 Network Stats:");
+                System.out.println("  - Throughput: " + stats.throughput() + " bytes/seg");
+                System.out.println("  - Jitter: " + stats.jitter() + " ms");
+
+
+                out.println("ACK," + timestampServidor);
+            }
+
+        } catch (Exception ignored) {}
     }
 }

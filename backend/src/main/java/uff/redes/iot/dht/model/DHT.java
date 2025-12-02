@@ -1,4 +1,4 @@
-package uff.redes.iot.dht;
+package uff.redes.iot.dht.model;
 
 import jakarta.persistence.*;
 import lombok.Data;

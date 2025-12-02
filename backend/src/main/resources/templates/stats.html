@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>DHT em tempo real</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        canvas { max-width: 800px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+<h1>DHT Sensor em tempo real</h1>
+
+<p>Temperatura: <span id="temperatura">--</span> °C</p>
+<p>Umidade: <span id="umidade">--</span> %</p>
+<p>Origem: <span id="origem">--</span></p>
+<p>Data/Hora: <span id="dataHora">--</span></p>
+
+<canvas id="temperaturaChart"></canvas>
+<canvas id="umidadeChart"></canvas>
+
+<script>
+    const tempData = [], humData = [], labels = [];
+
+    const temperaturaChart = new Chart(
+        document.getElementById('temperaturaChart'),
+        {
+            type: 'line',
+            data: { labels, datasets: [{ label: 'Temperatura (°C)', data: tempData }] }
+        }
+    );
+
+    const umidadeChart = new Chart(
+        document.getElementById('umidadeChart'),
+        {
+            type: 'line',
+            data: { labels, datasets: [{ label: 'Umidade (%)', data: humData }] }
+        }
+    );
+
+<!--    async function atualizarDHT() {-->
+<!--        try {-->
+<!--            const response = await fetch('/api/dht/ultimo');-->
+<!--            if (!response.ok) return;-->
+<!--            const data = await response.json();-->
+
+<!--            document.getElementById('temperatura').textContent = data.temperatura;-->
+<!--            document.getElementById('umidade').textContent = data.umidade;-->
+<!--            document.getElementById('origem').textContent = data.origem;-->
+<!--            document.getElementById('dataHora').textContent = data.dataHora;-->
+
+<!--            labels.push(new Date().toLocaleTimeString());-->
+<!--            tempData.push(data.temperatura);-->
+<!--            humData.puURL CodeLens for RESTEasy JAX-RS GET methods-->
+<!--            sh(data.umidade);-->
+
+<!--            if (labels.length > 20) {-->
+<!--                labels.shift(); tempData.shift(); humData.shift();-->
+<!--            }-->
+
+<!--            temperaturaChart.update();-->
+<!--            umidadeChart.update();-->
+<!--        } catch (err) { console.error(err); }-->
+<!--    }-->
+
+    setInterval(atualizarDHT, 1000);
+    atualizarDHT();
+</script>
+</body>
+</html>
