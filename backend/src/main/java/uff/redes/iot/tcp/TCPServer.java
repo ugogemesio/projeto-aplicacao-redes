@@ -1,22 +1,18 @@
 package uff.redes.iot.tcp;
 
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
-
-import uff.redes.iot.dht.model.*;
-
+import uff.redes.iot.dht.model.DHTResponse;
 import uff.redes.iot.dht.service.DHTService;
 import uff.redes.iot.dht.service.DHTStatsService;
 import uff.redes.iot.networkstats.NetworkStats;
 
+import jakarta.annotation.PostConstruct;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.time.LocalDateTime;
-
 
 @Component
 @RequiredArgsConstructor
@@ -26,9 +22,7 @@ public class TCPServer {
     private final DHTService service;
     private final DHTStatsService statsService;
 
-    private volatile DHTResponse lastData = new DHTResponse(
-            null, 0.0, 0.0, "Nenhum", ""
-    );
+    private volatile DHTResponse lastData = new DHTResponse(null, 0.0, 0.0, "Nenhum", "");
 
     public DHTResponse getLastData() {
         return lastData;
@@ -36,7 +30,7 @@ public class TCPServer {
 
     @PostConstruct
     public void startServer() {
-        new Thread(() -> runTCPServer()).start();
+        new Thread(this::runTCPServer).start();
     }
 
     private void runTCPServer() {
@@ -47,7 +41,6 @@ public class TCPServer {
                 Socket clientSocket = serverSocket.accept();
                 new Thread(() -> processClient(clientSocket)).start();
             }
-
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -64,8 +57,8 @@ public class TCPServer {
                 System.out.println("📥 Recebido: " + line);
 
                 String[] parts = line.split(",");
-                if (parts.length != 5) {  // Agora são 5 campos!
-                    System.out.println("⚠️ Formato inválido. Esperados 5 campos, recebidos: " + parts.length);
+                if (parts.length != 6) {  // Agora enviamos RTT e Jitter
+                    System.out.println("⚠️ Formato inválido. Esperados 6 campos, recebidos: " + parts.length);
                     continue;
                 }
 
@@ -73,36 +66,30 @@ public class TCPServer {
                 double hum = Double.parseDouble(parts[1]);
                 String origem = parts[2];
                 long timestampESP = Long.parseLong(parts[3]);
-                long rttESP = Long.parseLong(parts[4]);  // RTT calculado pelo ESP
+                long rttESP = Long.parseLong(parts[4]);
+                long jitterESP = Long.parseLong(parts[5]);
 
                 long timestampServidor = System.currentTimeMillis();
 
-                // ✅ Agora use o RTT que veio do ESP (já calculado corretamente)
-                // Não precisa fazer timestampServidor - timestampESP
-
-                int bytesRecebidos = line.getBytes().length;
                 lastData = new DHTResponse(
                         null, temp, hum,
-                        origem + " | RTT: " + rttESP + " ms",
+                        origem + " | RTT: " + rttESP + " ms | Jitter: " + jitterESP + " ms",
                         LocalDateTime.now().toString()
                 );
 
-                // Delegar ao serviço
                 service.processIncomingData(temp, hum, origem);
 
-                // WebSocket
                 messagingTemplate.convertAndSend("/topic/dht", lastData);
 
-                // Usar o RTT que veio do ESP para estatísticas
-                statsService.addRTT(rttESP, bytesRecebidos);
+                int bytesRecebidos = line.getBytes().length;
+                statsService.addRTT(rttESP, jitterESP, bytesRecebidos);
 
                 NetworkStats stats = statsService.getNetworkStats();
                 System.out.println("📊 Network Stats:");
                 System.out.println("  - Throughput: " + stats.throughput() + " bytes/seg");
-                System.out.println("  - Jitter: " + stats.jitter() + " ms");
+                System.out.println("  - Jitter (média do servidor): " + stats.jitter() + " ms");
                 System.out.println("  - RTT atual (ESP): " + rttESP + " ms");
 
-                // Enviar ACK de volta
                 out.println("ACK," + timestampServidor);
             }
         } catch (Exception e) {
