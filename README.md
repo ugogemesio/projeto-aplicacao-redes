@@ -96,7 +96,7 @@ char payload[128];
 snprintf(payload, sizeof(payload), "%.1f,%.1f,%s,%lu,%lu,%lu",
    t, h, ipOrigem.c_str(), timestamp, lastRTT, jitter);
 ```
-
+---
 3. Backend processa dados, calcula métricas e armazena.
 
 ```bash
