@@ -124,7 +124,7 @@ messagingTemplate.convertAndSend("/topic/dht", newLast);
 
 ---
 
-## Execução do Projeto
+## <a id="execucao-do-projeto"></a>Execução do Projeto
 
 **Pré-requisitos:** 
 - Java 25
@@ -151,7 +151,7 @@ messagingTemplate.convertAndSend("/topic/dht", newLast);
 
 ---
 
-##  Medições de Rede do ESP32
+## <a id="performance"></a>Medições de Rede do ESP32
 
 ```bash
   - Throughput: 22.03683674767782 bytes/seg
@@ -160,13 +160,13 @@ messagingTemplate.convertAndSend("/topic/dht", newLast);
 ```
 
 ---
+## <a id="limitacoes-conhecidas"></a>Limitações Conhecidas
 
-## Limitações Conhecidas
 - Frontend somente para demonstração.
 - Gráfico simples somente para apresentação visual
 ---
 
-## Contribuição
+## <a id="contribuicao"></a>Contribuição
 
 1. Faça **fork** do repositório.
 2. Implemente alterações.
