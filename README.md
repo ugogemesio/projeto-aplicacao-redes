@@ -11,7 +11,7 @@ Este projeto demonstra integração de dispositivos IoT com serviços backend, c
 3. [Arquitetura do Sistema](#arquitetura-do-sistema)
 4. [Fluxo de Uso](#fluxo-de-uso)
 5. [Execução do Projeto](#execucao-do-projeto)
-6. [Performance](#performance)
+6. [Medições de Rede do ESP32](#performance)
 7. [Limitações Conhecidas](#limitacoes-conhecidas)
 8. [Contribuição](#contribuicao)
 
@@ -36,6 +36,7 @@ A aplicação busca demonstrar aspectos fundamentais de Redes de Computadores, c
 ## Funcionalidades
 
 ESP32
+- Access Point para configuração inicial
 - Envio periódico de dados (sensores, métricas, status, etc.) via TCP ou WebSocket.
  Realiza tomadas de decisão locais (ex.: acionar atuadores).
 - Pode gerar uma interface básica local (OLED, serial, webserver).
@@ -78,15 +79,46 @@ Atores        Persistência           em tempo real
 
 ## Fluxo de Uso
 
+
+0. Usuário loga o ESP32 no WIFI do Backend
+
+<img width="1216" height="841" alt="Captura de tela de 2025-12-05 04-09-11" src="https://github.com/user-attachments/assets/9c078181-9db7-43af-8b22-25d310dd5125" />
+
 1. ESP32 inicializa sensores e conexão.
+
+<img width="1216" height="841" alt="Captura de tela de 2025-12-05 04-11-07" src="https://github.com/user-attachments/assets/384bb432-22f7-4096-b846-ea63b1fc4731" />
 
 2. Envia dados periódicos ao backend (timestamp, valores, ACK, sequência, etc.).
 
+```bash
+unsigned long timestamp = micros();
+char payload[128];
+snprintf(payload, sizeof(payload), "%.1f,%.1f,%s,%lu,%lu,%lu",
+   t, h, ipOrigem.c_str(), timestamp, lastRTT, jitter);
+```
+
 3. Backend processa dados, calcula métricas e armazena.
 
-4. Backend envia atualizações ao frontend via WebSocket (ainda não implementado).
+```bash
+Recebido de /192.168.100.192:54709: 26.7,81.0,192.168.100.192,329324869,1504,74
+Hibernate: insert into dhtentidade (data_hora,origem,temperatura,umidade,id) values (?,?,?,?,default)
+Hibernate: insert into network_stats (jitter,rtt,throughput,id) values (?,?,?,default)
+Network Stats:
+  - Throughput: 14.630619547819467 bytes/seg
+  - Jitter (média do servidor): 7869.667506297229 µs
+  - RTT atual (ESP): 1504.0 µs
+
+```
+
+4. Backend envia atualizações ao frontend via WebSocket.
+```bash
+messagingTemplate.convertAndSend("/topic/dht", newLast);
+```
 
 5. Usuário visualiza métricas em tempo real.
+
+<img width="1419" height="1962" alt="image" src="https://github.com/user-attachments/assets/b15d997d-11f9-4b14-be61-30c48752e35f" />
+
 
 6. Usuário controla ESP32 via frontend (ainda não implementado).
 
@@ -119,31 +151,19 @@ Atores        Persistência           em tempo real
 
 ---
 
-##  Performance
+##  Medições de Rede do ESP32
 
-Performance
-
-
-- Throughput médio
-
-- RTT médio
-
-- Jitter
-
-- Taxa de pacotes perdidos
-
-Testes de carga 
-
-# Exemplo de registro
-Throughput: 15.3 bytes/s
-RTT: 132 ms
-Jitter: 8 ms
-Pacotes recebidos: 152
+```bash
+  - Throughput: 22.03683674767782 bytes/seg
+  - Jitter (média do servidor): 13704.095238095239 µs
+  - RTT atual (ESP): 1437.0 µs
+```
 
 ---
 
 ## Limitações Conhecidas
-
+- Frontend somente para demonstração.
+- Gráfico simples somente para apresentação visual
 ---
 
 ## Contribuição
