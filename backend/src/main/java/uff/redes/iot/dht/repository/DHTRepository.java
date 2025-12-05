@@ -1,11 +1,13 @@
 package uff.redes.iot.dht.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import uff.redes.iot.dht.model.DHT;
+import org.springframework.stereotype.Repository;
+import uff.redes.iot.dht.model.DHTEntidade;
 
 import java.util.Optional;
 
-public interface DHTRepository extends JpaRepository<DHT, Long> {
-    Optional<DHT> findTopByOrderByDataHoraDesc();
+@Repository
+public interface DHTRepository extends JpaRepository<DHTEntidade, Long> {
+    Optional<DHTEntidade> findTopByOrderByDataHoraDesc();
 
 }

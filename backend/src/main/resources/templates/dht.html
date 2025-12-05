@@ -1,38 +1,457 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>DHT em tempo real</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard DHT - Monitoramento em Tempo Real</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        canvas { max-width: 800px; margin: 20px 0; }
+        :root {
+            --primary: #4361ee;
+            --primary-light: #4895ef;
+            --secondary: #3a0ca3;
+            --danger: #f72585;
+            --success: #4cc9f0;
+            --warning: #f8961e;
+            --dark: #1a1a2e;
+            --light: #f8f9fa;
+            --gray: #6c757d;
+            --gray-light: #e9ecef;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f7fb;
+            color: #333;
+            line-height: 1.6;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 25px 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: var(--card-shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: translate(40%, -40%);
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        h1 i {
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background-color: #4ade80;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: var(--card-shadow);
+            transition: var(--transition);
+            border-left: 5px solid var(--primary);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title i {
+            color: var(--primary);
+        }
+
+        .value-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .value {
+            font-size: 2.8rem;
+            font-weight: 700;
+        }
+
+        .temp-value {
+            color: var(--danger);
+        }
+
+        .hum-value {
+            color: var(--success);
+        }
+
+        .unit {
+            font-size: 1.2rem;
+            color: var(--gray);
+            font-weight: 400;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--gray-light);
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: var(--gray);
+        }
+
+        .info-value {
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-box {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            background-color: var(--gray-light);
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--gray);
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--dark);
+        }
+
+        .history-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th {
+            background-color: var(--gray-light);
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid var(--gray-light);
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--gray);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--gray-light);
+            margin-top: 30px;
+        }
+
+        .update-time {
+            font-size: 0.85rem;
+            color: var(--gray);
+            margin-top: 10px;
+            text-align: right;
+        }
+
+        @media (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .value {
+                font-size: 2.2rem;
+            }
+        }
     </style>
 </head>
 <body>
+<div class="container">
+    <header>
+        <div class="header-content">
+            <h1><i class="fas fa-thermometer-half"></i> Dashboard DHT - Monitoramento em Tempo Real</h1>
+            <p class="subtitle">Monitoramento contínuo de temperatura, umidade e estatísticas de rede</p>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span id="connection-status">Conectado e recebendo dados</span>
+            </div>
+        </div>
+    </header>
 
-<h1>DHT Sensor em tempo real</h1>
+    <div class="dashboard-grid">
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-temperature-high"></i> Temperatura Atual
+            </div>
+            <div class="value-container">
+                <div class="value temp-value" id="temperatura">--</div>
+                <div class="unit">°C</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Origem</div>
+                <div class="info-value" id="origem">--</div>
+            </div>
+            <div class="update-time">
+                Última atualização: <span id="tempUpdateTime">--:--:--</span>
+            </div>
+        </div>
 
-<p>Temperatura: <span id="temperatura">--</span> °C</p>
-<p>Umidade: <span id="umidade">--</span> %</p>
-<p>Origem: <span id="origem">--</span></p>
-<p>Data/Hora: <span id="dataHora">--</span></p>
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-tint"></i> Umidade Atual
+            </div>
+            <div class="value-container">
+                <div class="value hum-value" id="umidade">--</div>
+                <div class="unit">%</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Data/Hora</div>
+                <div class="info-value" id="dataHora">--</div>
+            </div>
+            <div class="update-time">
+                Última atualização: <span id="humUpdateTime">--:--:--</span>
+            </div>
+        </div>
 
-<canvas id="temperaturaChart"></canvas>
-<canvas id="umidadeChart"></canvas>
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-chart-bar"></i> Estatísticas de Temperatura
+            </div>
+            <div class="stats-container">
+                <div class="stat-box">
+                    <div class="stat-value" id="maxTemp">--</div>
+                    <div class="stat-label">Máxima (°C)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="minTemp">--</div>
+                    <div class="stat-label">Mínima (°C)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="avgTemp">--</div>
+                    <div class="stat-label">Média (°C)</div>
+                </div>
+            </div>
+            <div class="update-time">
+                Atualizado a cada 5 segundos
+            </div>
+        </div>
+    </div>
 
-<h2>Estatísticas</h2>
-<p>Máxima: <span id="maxTemp">--</span> °C</p>
-<p>Mínima: <span id="minTemp">--</span> °C</p>
-<p>Média: <span id="avgTemp">--</span> °C</p>
+    <div class="charts-grid">
+        <div class="chart-container">
+            <h3 class="chart-title"><i class="fas fa-chart-line"></i> Variação de Temperatura</h3>
+            <canvas id="temperaturaChart"></canvas>
+        </div>
 
+        <div class="chart-container">
+            <h3 class="chart-title"><i class="fas fa-chart-line"></i> Variação de Umidade</h3>
+            <canvas id="umidadeChart"></canvas>
+        </div>
+    </div>
+
+    <div class="history-section">
+        <h3 class="chart-title"><i class="fas fa-network-wired"></i> Estatísticas de Rede</h3>
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h4 class="chart-title">Throughput (bytes/s)</h4>
+                <canvas id="throughputChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h4 class="chart-title">Jitter (µs)</h4>
+                <canvas id="jitterChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h4 class="chart-title">RTT (µs)</h4>
+                <canvas id="rttChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="history-section">
+        <h3 class="chart-title"><i class="fas fa-history"></i> Histórico de Estatísticas de Rede</h3>
+        <table id="historyTable">
+            <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Throughput (bytes/s)</th>
+                <th>Jitter (µs)</th>
+                <th>RTT (µs)</th>
+            </tr>
+            </thead>
+            <tbody>
+            <!-- Os dados serão inseridos aqui via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <footer>
+        <p>Dashboard DHT em Tempo Real • Desenvolvido para monitoramento de sensores • Dados atualizados via WebSocket</p>
+        <p id="currentTime"></p>
+    </footer>
+</div>
 
 <script>
     // Arrays para armazenar histórico dos últimos valores
     const tempData = [];
     const humData = [];
     const labels = [];
+
+    const netLabels = [];
+    const throughputData = [];
+    const jitterData = [];
+    const rttData = [];
 
     // Configuração do gráfico de temperatura
     const tempCtx = document.getElementById('temperaturaChart').getContext('2d');
@@ -43,17 +462,43 @@
             datasets: [{
                 label: 'Temperatura (°C)',
                 data: tempData,
-                borderColor: 'rgb(255, 99, 132)',
-                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                borderColor: 'rgb(239, 71, 111)',
+                backgroundColor: 'rgba(239, 71, 111, 0.1)',
+                borderWidth: 3,
                 fill: true,
-                tension: 0.2
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: 'rgb(239, 71, 111)'
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
             scales: {
-                x: { display: true, title: { display: true, text: 'Tempo' } },
-                y: { display: true, title: { display: true, text: '°C' } }
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Tempo'
+                    },
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: '°C'
+                    },
+                    suggestedMin: 10,
+                    suggestedMax: 40
+                }
             }
         }
     });
@@ -67,17 +512,166 @@
             datasets: [{
                 label: 'Umidade (%)',
                 data: humData,
-                borderColor: 'rgb(54, 162, 235)',
-                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgb(0, 180, 216)',
+                backgroundColor: 'rgba(0, 180, 216, 0.1)',
+                borderWidth: 3,
                 fill: true,
-                tension: 0.2
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: 'rgb(0, 180, 216)'
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
             scales: {
-                x: { display: true, title: { display: true, text: 'Tempo' } },
-                y: { display: true, title: { display: true, text: '%' } }
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Tempo'
+                    },
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: '%'
+                    },
+                    suggestedMin: 20,
+                    suggestedMax: 80
+                }
+            }
+        }
+    });
+
+    // Configuração do gráfico de throughput
+    const thrCtx = document.getElementById('throughputChart').getContext('2d');
+    const throughputChart = new Chart(thrCtx, {
+        type: 'line',
+        data: {
+            labels: netLabels,
+            datasets: [{
+                label: 'Throughput (bytes/s)',
+                data: throughputData,
+                borderColor: 'rgb(255, 159, 64)',
+                backgroundColor: 'rgba(255, 159, 64, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: 'rgb(255, 159, 64)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Tempo' },
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    title: { display: true, text: 'bytes/s' },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Configuração do gráfico de jitter
+    const jitterCtx = document.getElementById('jitterChart').getContext('2d');
+    const jitterChart = new Chart(jitterCtx, {
+        type: 'line',
+        data: {
+            labels: netLabels,
+            datasets: [{
+                label: 'Jitter (µs)',
+                data: jitterData,
+                borderColor: 'rgb(153, 102, 255)',
+                backgroundColor: 'rgba(153, 102, 255, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: 'rgb(153, 102, 255)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Tempo' },
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    title: { display: true, text: 'µs' },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Configuração do gráfico de RTT
+    const rttCtx = document.getElementById('rttChart').getContext('2d');
+    const rttChart = new Chart(rttCtx, {
+        type: 'line',
+        data: {
+            labels: netLabels,
+            datasets: [{
+                label: 'RTT (µs)',
+                data: rttData,
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: 'rgb(75, 192, 192)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Tempo' },
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    title: { display: true, text: 'µs' },
+                    beginAtZero: true
+                }
             }
         }
     });
@@ -96,14 +690,19 @@
             document.getElementById('origem').textContent = data.origem;
             document.getElementById('dataHora').textContent = data.dataHora;
 
+            // Atualiza o timestamp
+            const now = new Date();
+            document.getElementById('tempUpdateTime').textContent = now.toLocaleTimeString();
+            document.getElementById('humUpdateTime').textContent = now.toLocaleTimeString();
+
             // Adiciona ao histórico
-            const timeLabel = new Date().toLocaleTimeString();
+            const timeLabel = now.toLocaleTimeString();
             labels.push(timeLabel);
             tempData.push(data.temperatura);
             humData.push(data.umidade);
 
-            // Mantém somente os últimos 20 pontos
-            if (labels.length > 20) {
+            // Mantém somente os últimos 15 pontos
+            if (labels.length > 15) {
                 labels.shift();
                 tempData.shift();
                 humData.shift();
@@ -115,57 +714,188 @@
 
         } catch (err) {
             console.error("Erro ao buscar dados do DHT:", err);
+            document.getElementById('connection-status').textContent = "Erro na conexão com o servidor";
+            document.getElementById('connection-status').style.color = "#f72585";
         }
     }
 
-    setInterval(atualizarDHT, 1000);
+    // Configurar atualização periódica a cada 2 segundos
+    setInterval(atualizarDHT, 2000);
+    atualizarDHT(); // Chamada inicial
 
-    atualizarDHT();
+    // WebSocket para atualizações em tempo real
     let stompClient = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
 
-function connectWebSocket() {
-    const socket = new SockJS('/ws');
-    stompClient = Stomp.over(socket);
-    stompClient.connect({}, function () {
-        stompClient.subscribe('/topic/dht', function (msg) {
-            const data = JSON.parse(msg.body);
-            atualizarDashboard(data);
+    function connectWebSocket() {
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, function () {
+            console.log("Conectado via WebSocket");
+            document.getElementById('connection-status').textContent = "Conectado e recebendo dados em tempo real";
+            reconnectAttempts = 0;
+
+            stompClient.subscribe('/topic/dht', function (msg) {
+                const data = JSON.parse(msg.body);
+                atualizarDashboard(data);
+            });
+        }, function(error) {
+            console.error("Erro na conexão WebSocket:", error);
+            document.getElementById('connection-status').textContent = "Tentando reconectar...";
+
+            // Tentar reconectar após um intervalo
+            if (reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++;
+                setTimeout(connectWebSocket, 3000);
+            } else {
+                document.getElementById('connection-status').textContent = "Conexão WebSocket falhou. Usando polling HTTP.";
+            }
         });
-    });
-}
-
-function atualizarDashboard(data) {
-    document.getElementById('temperatura').textContent = data.temperatura.toFixed(1);
-    document.getElementById('umidade').textContent = data.umidade.toFixed(1);
-    document.getElementById('origem').textContent = data.origem;
-    document.getElementById('dataHora').textContent = data.dataHora;
-
-    const timeLabel = new Date().toLocaleTimeString();
-    labels.push(timeLabel);
-    tempData.push(data.temperatura);
-    humData.push(data.umidade);
-
-    if (labels.length > 20) {
-        labels.shift();
-        tempData.shift();
-        humData.shift();
     }
 
-    temperaturaChart.update();
-    umidadeChart.update();
-}
+    // Função para carregar histórico de network stats
+    async function carregarHistorico() {
+        try {
+            const response = await fetch("/network/stats/history");
+            if (!response.ok) return;
 
-connectWebSocket();
-async function atualizarStats() {
-    const r = await fetch('/api/stats');
-    const s = await r.json();
-    document.getElementById('maxTemp').textContent = s.maxTemp.toFixed(1);
-    document.getElementById('minTemp').textContent = s.minTemp.toFixed(1);
-    document.getElementById('avgTemp').textContent = s.avgTemp.toFixed(1);
-}
+            const data = await response.json();
+            const tbody = document.querySelector("#historyTable tbody");
+            tbody.innerHTML = "";
 
-setInterval(atualizarStats, 5000);
+            // Limitar a 10 registros mais recentes
+            const recentData = data.slice(-10);
 
+            recentData.forEach(item => {
+                const row = document.createElement("tr");
+
+                row.innerHTML = `
+                    <td>${item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : "--"}</td>
+                    <td>${item.throughput ? item.throughput.toFixed(2) : "--"}</td>
+                    <td>${item.jitter ? item.jitter.toFixed(2) : "--"}</td>
+                    <td>${item.rtt || "--"}</td>
+                `;
+
+                tbody.appendChild(row);
+            });
+
+        } catch (e) {
+            console.error("Erro ao carregar histórico:", e);
+        }
+    }
+
+    // Função para atualizar estatísticas de temperatura
+    async function atualizarStats() {
+        try {
+            const r = await fetch('/api/dht/stats');
+            const s = await r.json();
+            document.getElementById('maxTemp').textContent = s.maxTemp.toFixed(1);
+            document.getElementById('minTemp').textContent = s.minTemp.toFixed(1);
+            document.getElementById('avgTemp').textContent = s.avgTemp.toFixed(1);
+        } catch (error) {
+            console.error("Erro ao buscar estatísticas:", error);
+        }
+    }
+
+    // Função principal para atualizar o dashboard
+    function atualizarDashboard(data) {
+        // Atualiza dados do DHT
+        document.getElementById('temperatura').textContent = data.temperatura.toFixed(1);
+        document.getElementById('umidade').textContent = data.umidade.toFixed(1);
+        document.getElementById('origem').textContent = data.origem;
+        document.getElementById('dataHora').textContent = data.dataHora;
+
+        // Atualiza o timestamp
+        const now = new Date();
+        document.getElementById('tempUpdateTime').textContent = now.toLocaleTimeString();
+        document.getElementById('humUpdateTime').textContent = now.toLocaleTimeString();
+
+        // Adiciona ao histórico
+        const timeLabel = now.toLocaleTimeString();
+        labels.push(timeLabel);
+        tempData.push(data.temperatura);
+        humData.push(data.umidade);
+
+        if (labels.length > 15) {
+            labels.shift();
+            tempData.shift();
+            humData.shift();
+        }
+
+        temperaturaChart.update();
+        umidadeChart.update();
+
+        // Buscar e atualizar network stats
+        fetch('/network/stats')
+            .then(r => r.json())
+            .then(stats => {
+                const netLabel = now.toLocaleTimeString();
+
+                netLabels.push(netLabel);
+                throughputData.push(stats.throughput || 0);
+                jitterData.push(stats.jitter || 0);
+                rttData.push(stats.rtt || 0);
+
+                if (netLabels.length > 15) {
+                    netLabels.shift();
+                    throughputData.shift();
+                    jitterData.shift();
+                    rttData.shift();
+                }
+
+                throughputChart.update();
+                jitterChart.update();
+                rttChart.update();
+            })
+            .catch(err => console.error("Erro ao buscar network stats:", err));
+    }
+
+    // Atualizar a hora atual no rodapé
+    function updateCurrentTime() {
+        const now = new Date();
+        document.getElementById('currentTime').textContent =
+            `Data: ${now.toLocaleDateString()} - Hora: ${now.toLocaleTimeString()}`;
+    }
+
+    // Inicializar todas as funcionalidades
+    document.addEventListener('DOMContentLoaded', function() {
+        // Conectar WebSocket
+        connectWebSocket();
+
+        // Inicializar atualizações periódicas
+        setInterval(atualizarStats, 5000);
+        setInterval(carregarHistorico, 10000);
+        setInterval(updateCurrentTime, 1000);
+
+        // Chamadas iniciais
+        atualizarStats();
+        carregarHistorico();
+        updateCurrentTime();
+
+        // Adicionar dados iniciais de exemplo para os gráficos
+        // (isso será substituído pelos dados reais quando recebidos)
+        const now = new Date();
+        for (let i = 14; i >= 0; i--) {
+            const time = new Date(now.getTime() - i * 2000);
+            labels.push(time.toLocaleTimeString());
+            tempData.push(23.5 + Math.random() * 3);
+            humData.push(45 + Math.random() * 10);
+
+            netLabels.push(time.toLocaleTimeString());
+            throughputData.push(500 + Math.random() * 1000);
+            jitterData.push(5 + Math.random() * 10);
+            rttData.push(20 + Math.random() * 30);
+        }
+
+        // Atualizar gráficos com dados iniciais
+        temperaturaChart.update();
+        umidadeChart.update();
+        throughputChart.update();
+        jitterChart.update();
+        rttChart.update();
+    });
 </script>
 </body>
 </html>

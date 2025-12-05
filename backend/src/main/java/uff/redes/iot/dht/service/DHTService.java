@@ -21,13 +21,13 @@ public class DHTService {
 
 
     public DHTResponse salvar(DHTCreateRequest request) {
-        DHT entidade = new DHT();
+        DHTEntidade entidade = new DHTEntidade();
         entidade.setTemperatura(request.temperatura());
         entidade.setUmidade(request.umidade());
         entidade.setOrigem(request.origem());
         entidade.setDataHora(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 
-        DHT salvo = repository.save(entidade);
+        DHTEntidade salvo = repository.save(entidade);
 
         return new DHTResponse(
                 salvo.getId(),
@@ -36,21 +36,6 @@ public class DHTService {
                 salvo.getOrigem(),
                 salvo.getDataHora()
         );
-    }
-
-//    public DHTResponse ultimo() {
-//        return tcpServer.getLastData();
-//    }
-    public DHTResponse buscarUltimo() {
-        return repository.findTopByOrderByDataHoraDesc()
-                .map(salvo -> new DHTResponse(
-                        salvo.getId(),
-                        salvo.getTemperatura(),
-                        salvo.getUmidade(),
-                        salvo.getOrigem(),
-                        salvo.getDataHora()
-                ))
-                .orElse(null);
     }
     public void processIncomingData(double temp, double hum, String origem) {
         statsService.addTemperatura(temp);
