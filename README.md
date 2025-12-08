@@ -166,6 +166,16 @@ messagingTemplate.convertAndSend("/topic/dht", newLast);
 - Gráfico simples somente para apresentação visual
 ---
 
+estrutura de ligação seguida: 
+
+```bash
+esp32.                   dh11
+GROUND<-----------G
+S<----------------S
+V
+
+```
+
 ## <a id="contribuicao"></a>Contribuição
 
 1. Faça **fork** do repositório.
