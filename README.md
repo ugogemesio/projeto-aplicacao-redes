@@ -169,12 +169,13 @@ messagingTemplate.convertAndSend("/topic/dht", newLast);
 estrutura de ligação seguida: 
 
 ```bash
-esp32.                   dh11
-GROUND<-----------G
-S<----------------S
-V
+esp32<------------dh11
+G<---------------->G
+S<-----------------S
+V----------------->V
 
 ```
+<img width="720" height="1280" alt="image" src="https://github.com/user-attachments/assets/b7ed44ba-5d18-4466-8ec3-50433c985fa0" />
 
 ## <a id="contribuicao"></a>Contribuição
 
